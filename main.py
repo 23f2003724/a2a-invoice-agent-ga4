@@ -4,6 +4,7 @@ import json
 import os
 import uuid
 from typing import Any
+from contextlib import asynccontextmanager
 
 from fastapi import Depends, FastAPI, Header, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -17,10 +18,17 @@ from database import ProcessedMessage, Task, get_db, init_db
 from schemas import ActionResultsData, InvoiceBatchData, SendMessageRequest
 
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    init_db()
+    yield
+
+
 app = FastAPI(
     title="A2A Invoice Agent",
     description="AI-powered invoice decision agent",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 BASE_URL = os.getenv(
@@ -137,11 +145,6 @@ def replay_or_conflict(
         raise HTTPException(status_code=409, detail="IDEMPOTENCY_CONFLICT")
 
     return a2a_response(existing.response_data)
-
-@app.on_event("startup")
-def startup_event() -> None:
-    init_db()
-
 
 @app.get("/")
 def home() -> dict[str, str]:
